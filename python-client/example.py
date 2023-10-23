@@ -193,10 +193,14 @@ def should_auto_disconnect():
 
 def should_send_audio_end():
     """Check if audio-end event should be sent"""
-    if (not CONTINUOUS_STT and mic_stream.is_stopped() and audio_queue.empty() and
-            not sepia_stt_client.was_audio_end_submitted()):
-        return True
-    return False
+    return bool(
+        (
+            not CONTINUOUS_STT
+            and mic_stream.is_stopped()
+            and audio_queue.empty()
+            and not sepia_stt_client.was_audio_end_submitted()
+        )
+    )
 
 # MAIN
 def main():

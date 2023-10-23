@@ -175,7 +175,7 @@ class French(Language):
         elif source == "neuv":
             source = "neuf"
         elif source not in self.NUMBERS:
-            source = source + "e"
+            source = f"{source}e"
             if source not in self.NUMBERS:
                 return None
         return source

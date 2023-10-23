@@ -124,27 +124,17 @@ class SepiaSttSocketClient:
             # Error
             if msg_type == "error":
                 await self._handle_message_error(msg_json)
-            # Ping
             elif msg_type == "ping":
                 # Pong
                 await self.send_json({"type": "pong", "msg_id": msg_json['msg_id']})
-            # Welcome
-            elif msg_type == "welcome":
-                self._is_ready_for_stream = True
-                if self.onready is not None:
-                    active_options = (
-                        msg_json['info']['options'] if 'info' in msg_json else {})
-                    self.onready(active_options)
-                    # NOTE: 'active_options' and 'self.selected_options' can be different
-            # Result
             elif msg_type == "result":
                 is_final = msg_json.get("isFinal", False)
                 best_transcript = msg_json.get("transcript", "")
                 # some useful states (maybe)
-                if is_final or (self._result_is_quasi_final and len(best_transcript) == 0):
-                    self._result_is_quasi_final = True
-                else:
-                    self._result_is_quasi_final = False
+                self._result_is_quasi_final = bool(
+                    is_final
+                    or (self._result_is_quasi_final and len(best_transcript) == 0)
+                )
                 # submit result
                 if self.onresult is not None:
                     self.onresult(msg_json)
@@ -155,10 +145,13 @@ class SepiaSttSocketClient:
                     # after final result, close connection
                     if self._websocket.open:
                         await self._websocket.close()
-            # Unknown
-            else:
-                # TODO: handle?
-                pass
+            elif msg_type == "welcome":
+                self._is_ready_for_stream = True
+                if self.onready is not None:
+                    active_options = (
+                        msg_json['info']['options'] if 'info' in msg_json else {})
+                    self.onready(active_options)
+                    # NOTE: 'active_options' and 'self.selected_options' can be different
 
     async def _handle_message_error(self, message):
         """Handle STT-Server errors"""
@@ -279,10 +272,10 @@ class SepiaSttSocketClient:
 
     def ping_server(self):
         """Ping server to see if connection works and server is online"""
-        res = requests.get(self.server_url + "/ping")
+        res = requests.get(f"{self.server_url}/ping")
         return res.json()
 
     def load_server_info(self):
         """Get STT-Server info like version and available engines/models"""
-        res = requests.get(self.server_url + "/settings")
+        res = requests.get(f"{self.server_url}/settings")
         return res.json()

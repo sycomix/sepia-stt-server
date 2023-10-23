@@ -1,5 +1,6 @@
 """ASR engine module for Vosk: https://github.com/alphacep/vosk-api"""
 
+
 import os
 import json
 
@@ -10,7 +11,7 @@ from engine_interface import EngineInterface, ModelNotFound
 from text_processor import TextToNumberProcessor, DateAndTimeOptimizer
 
 # Vosk log level - -1: off, 0: normal, 1: more verbose
-if settings.log_level == "warning" or settings.log_level == "error":
+if settings.log_level in ["warning", "error"]:
     SetLogLevel(-1)
 elif settings.log_level == "debug":
     SetLogLevel(1)
@@ -28,15 +29,12 @@ class VoskProcessor(EngineInterface):
             options = {}
         # -- typically shared options
         # NOTE: difference between alternatives 0 and 1 is only the Vosk result format!
-        self._alternatives = options.get("alternatives", int(1))
+        self._alternatives = options.get("alternatives", 1)
         self._return_words = options.get("words", options.get("words_ts", False))
         # -- list of custom phrases to recognize
         # example: self._phrase_list = ["hallo", "kannst du mich hören", "[unk]"]
         self._phrase_list = options.get("phrases", options.get("phrase_list", None))
-        # -- speaker detection
-        try_speaker_detection = options.get("speaker", False)
-        # NOTE: speaker detection does not work in all configurations
-        if try_speaker_detection:
+        if try_speaker_detection := options.get("speaker", False):
             self._speaker_detection = (settings.has_speaker_detection_model
                 and self._alternatives == 0)
         else:
@@ -110,7 +108,7 @@ class VoskProcessor(EngineInterface):
 
     def get_options(self):
         """Get Vosk options for active setup"""
-        active_options = {
+        return {
             "language": self._language,
             "task": self._asr_task,
             "model": self._asr_model_name,
@@ -119,15 +117,9 @@ class VoskProcessor(EngineInterface):
             "alternatives": self._alternatives,
             "continuous": self._continuous_mode,
             "words": self._return_words,
-            "speaker": self._speaker_detection
+            "speaker": self._speaker_detection,
+            "phrases": [],
         }
-        if self._phrase_list and len(self._phrase_list) > 0:
-            # NOTE: this can be very large, for now we use a placeholder
-            active_options["phrases"] = []
-            #active_options["phrases"] = self._phrase_list
-        else:
-            active_options["phrases"] = []
-        return active_options
 
     async def _handle_partial_result(self, result):
         """Handle a partial result"""
@@ -135,7 +127,8 @@ class VoskProcessor(EngineInterface):
             self._last_partial_str = result
             # Note: we disable words and alt. for partial results (not supported anyway)
             norm_result = VoskProcessor.normalize_result_format(
-                result, alternatives = int(1), return_words = False)
+                result, alternatives=1, return_words=False
+            )
             self._partial_result = norm_result
             #print("PARTIAL: ", self._partial_result)
             await self._send(self._partial_result, False)
@@ -164,11 +157,7 @@ class VoskProcessor(EngineInterface):
             # Send final result (because we haven't done it yet)
             await self._send(self._final_result, True)
             # self._recognizer.Reset()  # TODO: we skip this to prevent ERROR if already reset
-        elif last_result_was_final:
-            # We don't need to do anything but reset ... right?
-            # self._recognizer.Reset()  # TODO: we skip this to prevent ERROR if already reset
-            pass
-        else:
+        elif not last_result_was_final:
             # Request final
             result = self._recognizer.FinalResult()
             await self._handle_final_result(result, skip_send=True)
@@ -210,10 +199,7 @@ class VoskProcessor(EngineInterface):
         if alternatives > 0 and "alternatives" in json_result:
             # When alternatives is set the result format is different!
             json_result = json_result.get("alternatives", [])
-            # handle array
-            alternatives_list = None
-            if len(json_result) > 1:
-                alternatives_list = json_result[1:]
+            alternatives_list = json_result[1:] if len(json_result) > 1 else None
             if return_words:
                 words = json_result[0].get("result")
             return VoskProcessor.build_normalized_result(json_result[0],
@@ -252,7 +238,7 @@ class VoskProcessor(EngineInterface):
             return given_result
         #else:            # we can do more post-processing here maybe
         if "text" in given_result:
-            given_result["text"] += ", " + text
+            given_result["text"] += f", {text}"
             if "confidence" in new_result:
                 # sloppy confidence merge (take the worst)
                 given_result["confidence"] = min(

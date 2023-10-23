@@ -67,11 +67,8 @@ class WebsocketApiEndpoint:
                             "Unauthorized", "Binary data can only be sent after authentication."))
             # regular disconnect
             await WebsocketApiEndpoint.socket_manager.onclose(user)
-        except WebSocketDisconnect:
+        except (WebSocketDisconnect, RuntimeError):
             # acceptable disconnect
-            await WebsocketApiEndpoint.socket_manager.onclose(user)
-        except RuntimeError:
-            # broken disconnect
             await WebsocketApiEndpoint.socket_manager.onclose(user)
 
 # Message handlers:

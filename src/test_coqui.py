@@ -106,7 +106,7 @@ if args.beam_width:
     rec.setBeamWidth(args.beam_width)
 
 if scorer_file:
-    print("Loading scorer from files {}".format(scorer_file))
+    print(f"Loading scorer from files {scorer_file}")
     scorer_load_start = timer()
     rec.enableExternalScorer(scorer_file)
     print("Loaded scorer in {:.3}s.".format(timer() - scorer_load_start))

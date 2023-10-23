@@ -78,14 +78,14 @@ class DateAndTimeOptimizer(TextProcessor):
         self.time_optimizer = None
         self.date_optimizer = None
         # Currently supported languages: DE, EN
-        if self.language_code_short in ["en", "de"]:
+        if self.language_code_short == "en":
             self.supports_language = True
-            if self.language_code_short == "de":
-                self.time_optimizer = DateAndTimeOptimizer.optimize_time_de
-                self.date_optimizer = DateAndTimeOptimizer.optimize_date_ddmmyyyy_dot
-            elif self.language_code_short == "en":
-                self.time_optimizer = DateAndTimeOptimizer.optimize_time_en
-                self.date_optimizer = DateAndTimeOptimizer.optimize_date_en
+            self.time_optimizer = DateAndTimeOptimizer.optimize_time_en
+            self.date_optimizer = DateAndTimeOptimizer.optimize_date_en
+        elif self.language_code_short == "de":
+            self.supports_language = True
+            self.time_optimizer = DateAndTimeOptimizer.optimize_time_de
+            self.date_optimizer = DateAndTimeOptimizer.optimize_date_ddmmyyyy_dot
 
     @staticmethod
     def optimize_time_de(text_in: str):
@@ -102,7 +102,7 @@ class DateAndTimeOptimizer(TextProcessor):
         opt_text = search_res['text_before']
         if hour <= 24 and minutes < 60:
             # valid times - replace and continue search in rest
-            opt_text += str(hour) + ":" + str(minutes).zfill(2) + " Uhr"
+            opt_text += f"{hour}:{str(minutes).zfill(2)} Uhr"
         else:
             # invalid times - keep org
             opt_text += search_res['text_match']
@@ -130,7 +130,7 @@ class DateAndTimeOptimizer(TextProcessor):
         opt_text = search_res['text_before']
         if hour <= 24 and minutes < 60:
             # valid times - replace and continue search in rest
-            opt_text += str(hour) + ":" + str(minutes).zfill(2) + " " + time_ind
+            opt_text += f"{hour}:{str(minutes).zfill(2)} {time_ind}"
         else:
             # invalid times - keep org
             opt_text += search_res['text_match']
@@ -152,7 +152,7 @@ class DateAndTimeOptimizer(TextProcessor):
         opt_text = search_res['text_before']
         if day <= 31 and month <= 12:
             # valid date numbers - replace
-            opt_text += str(day).zfill(2) + "." + str(month).zfill(2) + "." + year
+            opt_text += f"{str(day).zfill(2)}.{str(month).zfill(2)}.{year}"
         else:
             # invalid day/month - keep
             opt_text += search_res['text_match']

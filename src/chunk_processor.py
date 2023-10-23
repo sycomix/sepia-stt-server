@@ -50,11 +50,10 @@ class ChunkProcessor():
         """Process chunks with given processor"""
         if self.processor is not None and self.processor.is_open and self.processor.accept_chunks:
             await self.processor.process(chunk)
-        else:
-            if self.send_message is not None:
-                await self.send_message(
-                    SocketErrorMessage(400, "ProcessError",
-                        "Chunk processor was (already) closed or didn't accept data (anymore)"))
+        elif self.send_message is not None:
+            await self.send_message(
+                SocketErrorMessage(400, "ProcessError",
+                    "Chunk processor was (already) closed or didn't accept data (anymore)"))
 
     async def finish_processing(self, message: SocketJsonInputMessage):
         """Stop accepting chunks and wait for last result"""
@@ -71,10 +70,7 @@ class ChunkProcessor():
 
     def get_options(self):
         """Get available processor options (optionally with defaults)"""
-        if self.processor:
-            return self.processor.get_options()
-        else:
-            return None
+        return self.processor.get_options() if self.processor else None
 
 #--- DYNAMIC ENGINE SWAPPING ---
 

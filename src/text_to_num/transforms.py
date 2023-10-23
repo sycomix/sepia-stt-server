@@ -79,12 +79,11 @@ def text2num(text: str, lang: Union[str, Language], relaxed: bool = False) -> in
         )
         num_parser.parse(text)
         return num_parser.value
-    # Default
     else:
         num_parser = WordStreamValueParser(language, relaxed=relaxed)
         tokens = list(dropwhile(lambda x: x in language.ZERO, text.split()))
         if not all(num_parser.push(word, ahead) for word, ahead in look_ahead(tokens)):
-            raise ValueError("invalid literal for text2num: {}".format(repr(text)))
+            raise ValueError(f"invalid literal for text2num: {repr(text)}")
 
     return num_parser.value
 
@@ -158,8 +157,7 @@ def alpha2digit(
             num_builder.close()
             if num_builder.value:
                 out_tokens.append(num_builder.value)
-            out_segments.append(" ".join(out_tokens))
-            out_segments.append(sep)
+            out_segments.extend((" ".join(out_tokens), sep))
         text = "".join(out_segments)
 
     # Post-processing
@@ -190,10 +188,10 @@ def _alpha2digit_agg(
     def revert_if_alone(sentence_effective_len: int, current_sentence: List[str]) -> bool:
         """Test if word is 'alone' and should not be shown as number."""
         # TODO: move this to Language?
-        if sentence_effective_len == 1 and current_sentence[0].lower() in language.NEVER_IF_ALONE:
-            return True
-        else:
-            return False
+        return (
+            sentence_effective_len == 1
+            and current_sentence[0].lower() in language.NEVER_IF_ALONE
+        )
 
     for segment, sep in zip(segments, punct):
         tokens = segment.split()
@@ -231,10 +229,9 @@ def _alpha2digit_agg(
                 if current_token_ordinal_org and num_result > ordinal_threshold:
                     token_to_add = str(combined_num_result)
                     token_to_add_is_num = True
-                # ... but ordinals threshold reverts number back
                 elif current_token_ordinal_org:
                     current_token_ordinal_org = None
-                    sentence[len(sentence)-1] = str(tmp_token_ordinal_org)
+                    sentence[-1] = str(tmp_token_ordinal_org)
                     token_to_add = " ".join(sentence)
                     token_to_add_is_num = False
             except ValueError:
@@ -302,7 +299,7 @@ def _alpha2digit_agg(
                     out_segment += ot
                 else:
                     next_is_decimal_num = False
-                    out_segment += ot + " "
+                    out_segment += f"{ot} "
             elif (ot in language.SIGN) and signed:
                 # sign check
                 if index < num_of_tokens - 1:
@@ -310,7 +307,7 @@ def _alpha2digit_agg(
                         out_segment += language.SIGN[ot]
             elif out_tokens_ordinal_org[index] is not None:
                 # cardinal transform
-                out_segment += language.num_ord(ot, str(out_tokens_ordinal_org[index])) + " "
+                out_segment += f"{language.num_ord(ot, str(out_tokens_ordinal_org[index]))} "
             elif (
                 (ot.lower() in language.DECIMAL_SEP)
                 and index > 0 and index < num_of_tokens - 1
@@ -321,7 +318,7 @@ def _alpha2digit_agg(
                 out_segment = out_segment.strip() + language.DECIMAL_SYM
                 next_is_decimal_num = True
             else:
-                out_segment += ot + " "
+                out_segment += f"{ot} "
 
         # print("all:", out_tokens, out_tokens_is_num, out_tokens_ordinal_org) # DEBUG
         out_segments.append(out_segment.strip())

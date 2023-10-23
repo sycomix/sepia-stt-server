@@ -12,8 +12,7 @@ optimizer = {
 def apply_optimize_pipeline(text_org: str, lang: str) -> None:
     """Use text2num and 'DateAndTimeOptimizer' and return"""
     text_digi = alpha2digit(text_org, lang, ordinal_threshold=0)
-    text_opt = optimizer[lang].process(text_digi)
-    return text_opt
+    return optimizer[lang].process(text_digi)
 
 def optimize_and_plot(text_org: str, lang: str) -> None:
     """Use text2num and 'DateAndTimeOptimizer' and plot afterwards"""

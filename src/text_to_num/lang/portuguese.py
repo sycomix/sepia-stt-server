@@ -216,8 +216,7 @@ class Portuguese(Language):
         as is the case for first and second.
         """
 
-        ord_ = self.PT_ORDINALS.get(word[:-1], None)
-        return ord_
+        return self.PT_ORDINALS.get(word[:-1], None)
 
     def num_ord(self, digits: str, original_word: str) -> str:
         """Add suffix to number in digits to make an ordinal
@@ -280,14 +279,12 @@ class OrdinalsMerger:
                     seq.append(self.get_cardinal(token))
                     gender = self.get_gender(token)
                 else:
-                    if current_is_ordinal is False:  # add standard token
-                        tokens_.append(token)
-                    else:  # close seq
+                    if current_is_ordinal is not False:
                         ordinal = sum(seq)
                         tokens_.append(str(ordinal) + gender)
-                        tokens_.append(token)
                         seq = []
                         current_is_ordinal = False
+                    tokens_.append(token)
                 pointer += 1
 
             if current_is_ordinal is True:  # close seq for single token expressions
@@ -298,9 +295,7 @@ class OrdinalsMerger:
             segment = " ".join(tokens_) + sep
             out_segments.append(segment)
 
-        text = "".join(out_segments)
-
-        return text
+        return "".join(out_segments)
 
     @staticmethod
     def is_ordinal(token: str) -> bool:
@@ -308,14 +303,14 @@ class OrdinalsMerger:
         if len(token) > 1 and ("º" in token or "°" in token or "ª" in token):
             out = True
 
-        if token in [
+        if token in {
             "primeiro",
             "primeira",
             "segundo",
             "segunda",
             "terceiro",
             "terceira",
-        ]:
+        }:
             out = True
         return out
 

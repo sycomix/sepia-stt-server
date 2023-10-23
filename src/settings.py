@@ -35,13 +35,13 @@ class SettingsFile:
             settings_read = settings.read(env_settings_path)
         else:
             # Check rest
-            path_checked = "".join('\n    {}'.format(sp) for sp in SETTINGS_PATHS)
+            path_checked = "".join(f'\n    {sp}' for sp in SETTINGS_PATHS)
             for settings_file in SETTINGS_PATHS:
                 if os.path.exists(settings_file):
                     settings_read = settings.read(settings_file)
                     break
         if not settings_read:
-            print("No settings file found at: " + path_checked, file=sys.stderr)
+            print(f"No settings file found at: {path_checked}", file=sys.stderr)
             sys.exit(1)
 
         # We only read ONE file so this is our active file
@@ -55,8 +55,6 @@ class SettingsFile:
             self.port = int(settings.get("server", "port"))
             self.cors_origins = settings.get("server", "cors_origins").split(",")
             self.log_level = settings.get("server", "log_level", fallback="warning")
-            #if self.log_level == "warning" or self.log_level == "error":
-                # TODO: add specific logger settings
             self.socket_heartbeat_s = int(settings.get(
                 "server", "socket_heartbeat_s", fallback="10"))
             self.socket_timeout_s = int(settings.get(
@@ -75,7 +73,7 @@ class SettingsFile:
             self.asr_engine = settings.get("app", "asr_engine", fallback="dynamic")
             if self.asr_engine == "all":
                 self.asr_engine = "dynamic" # alias for 'dynamic'
-            self.hot_swap_engines = True if self.asr_engine == "dynamic" else False
+            self.hot_swap_engines = self.asr_engine == "dynamic"
             self._available_engines = set({})   # keep track of all 'dynamic' engines in a set
             self.asr_model_paths = []       # required: folder
             self.asr_model_languages = []   # required: language code 'ab-CD'
@@ -116,9 +114,8 @@ class SettingsFile:
                     if val == "dynamic":
                         # prevent recursion when loading chunk processor
                         raise SettingsError("'engine=dynamic' is NOT ALLOWED as model property!")
-                    else:
-                        self._available_engines.add(val)
-                        current_params["engine"] = val
+                    self._available_engines.add(val)
+                    current_params["engine"] = val
                 elif key == f"{base_key}{model_index}":
                     current_params[base_key] = val
                 # collect final
@@ -130,7 +127,7 @@ class SettingsFile:
             for key, val in settings.items("speaker_models"):
                 if key.startswith("path"):
                     self.speaker_model_paths.append(val)
-            if len(self.speaker_model_paths) > 0:
+            if self.speaker_model_paths:
                 self.has_speaker_detection_model = True
             else:
                 self.has_speaker_detection_model = False
@@ -146,18 +143,15 @@ class SettingsFile:
         if self.asr_engine == "dynamic" and "engine" not in params:
             # we need that info
             pass
-        # else we add all models that have no engine parameter or one that fits
         elif (self.asr_engine == "dynamic" or
             "engine" not in params or self.asr_engine == params["engine"]):
             # build name for model from name/task/scorer/path
             if name:
                 self.asr_model_names.append(name)
             elif "task" in params:
-                self.asr_model_names.append("{}:{}".format(
-                    path, params["task"]))
+                self.asr_model_names.append(f'{path}:{params["task"]}')
             elif "scorer" in params:
-                self.asr_model_names.append("{}:{}".format(
-                    path, os.path.splitext(params["scorer"])[0]))
+                self.asr_model_names.append(f'{path}:{os.path.splitext(params["scorer"])[0]}')
             else:
                 self.asr_model_names.append(path)
             self.asr_model_paths.append(path)
@@ -167,8 +161,7 @@ class SettingsFile:
 
     def _get_vosk_features(self):
         """Features available for Vosk engine"""
-        features = {"partial_results", "alternatives", "words_ts"}
-        features.add("phrase_list")
+        features = {"partial_results", "alternatives", "words_ts", "phrase_list"}
         if self.has_speaker_detection_model:
             features.add("speaker_detection")
         # NOTE: typically used aliases: "words", "phrases", "speaker"
@@ -176,11 +169,13 @@ class SettingsFile:
 
     def _get_coqui_features(self):
         """Features available for Coqui engine"""
-        features = {"partial_results", "alternatives", "words_ts"}
-        features.add("hot_words")
-        features.add("external_scorer")
-        # NOTE: typically used aliases: "words", "hotWords", "scorer"
-        return features
+        return {
+            "partial_results",
+            "alternatives",
+            "words_ts",
+            "hot_words",
+            "external_scorer",
+        }
 
     def get_settings_response(self):
         """Get (partially hard-coded) settings options for server info message"""

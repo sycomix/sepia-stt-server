@@ -128,32 +128,30 @@ class English(Language):
 
         Return None if word is not an ordinal or is better left in letters.
         """
-        plur_suff = word.endswith("ths")
         sing_suff = word.endswith("th")
-        if not (plur_suff or sing_suff):
-            if word.endswith("first"):
-                source = word.replace("first", "one")
-            elif word.endswith("second"):
-                source = word.replace("second", "two")
-            elif word.endswith("third"):
-                source = word.replace("third", "three")
-            else:
-                return None
-        else:
+        if plur_suff := word.endswith("ths"):
             source = word[:-3] if plur_suff else word[:-2]
+        elif sing_suff:
+            source = word[:-3] if plur_suff else word[:-2]
+        elif word.endswith("first"):
+            source = word.replace("first", "one")
+        elif word.endswith("second"):
+            source = word.replace("second", "two")
+        elif word.endswith("third"):
+            source = word.replace("third", "three")
+        else:
+            return None
         if source in RAD_MAP:
             source = RAD_MAP[source]
         elif source.endswith("ie"):
-            source = source[:-2] + "y"
+            source = f"{source[:-2]}y"
         elif source.endswith("fif"):  # fifth -> five
-            source = source[:-1] + "ve"
+            source = f"{source[:-1]}ve"
         elif source.endswith("eigh"):  # eighth -> eight
-            source = source + "t"
+            source = f"{source}t"
         elif source.endswith("nin"):  # ninth -> nine
-            source = source + "e"
-        if source not in self.NUMBERS:
-            return None
-        return source
+            source = f"{source}e"
+        return None if source not in self.NUMBERS else source
 
     def num_ord(self, digits: str, original_word: str) -> str:
         """Add suffix to number in digits to make an ordinal"""

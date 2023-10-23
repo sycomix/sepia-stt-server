@@ -148,37 +148,34 @@ class German(Language):
         """Convert ordinal number to cardinal.
         Return None if word is not an ordinal or is better left in letters.
         """
-        if len(word) > 4:
-            word_base = None
-            # example transf.: zwanzigster -> zwanzigste -> zwanzigs -> zwanzig
-            if word.endswith("ter") or word.endswith("tes") or word.endswith("ten"):
-                word_base = word[:-1].lower()       # e.g. erster -> erste
-            elif word.endswith("te"):
-                word_base = word.lower()
-            if word_base:
-                if word_base in self.ORDINALS_FIXED_GER:
-                    return self.ORDINALS_FIXED_GER[word_base]
-                else:
-                    word_base = word_base[:-2]      # e.g. vierte -> vier
-                    if word_base.endswith("s"):
-                        word_base = word_base[:-1]  # e.g. zwanzigs -> zwanzig
-                    if word_base in self.NUMBER_DICT_GER:
-                        return word_base
-                    # here we could still have e.g: "zweiundzwanzig"
-                    if word_base.endswith(tuple(self.NUMBER_DICT_GER)):
-                        # once again split - TODO: we should try to reduce split calls
-                        word_base_split = self.split_number_word(word_base).split()
-                        wbs_length = len(word_base_split)
-                        if (
-                            wbs_length > 0
-                            and word_base_split[wbs_length - 1] in self.NUMBER_DICT_GER
-                        ):
-                            return "".join(word_base_split)
-                    return None
-            else:
-                return None
-        else:
+        if len(word) <= 4:
             return None
+        word_base = None
+        # example transf.: zwanzigster -> zwanzigste -> zwanzigs -> zwanzig
+        if word.endswith("ter") or word.endswith("tes") or word.endswith("ten"):
+            word_base = word[:-1].lower()       # e.g. erster -> erste
+        elif word.endswith("te"):
+            word_base = word.lower()
+        if not word_base:
+            return None
+        if word_base in self.ORDINALS_FIXED_GER:
+            return self.ORDINALS_FIXED_GER[word_base]
+        word_base = word_base[:-2]      # e.g. vierte -> vier
+        if word_base.endswith("s"):
+            word_base = word_base[:-1]  # e.g. zwanzigs -> zwanzig
+        if word_base in self.NUMBER_DICT_GER:
+            return word_base
+        # here we could still have e.g: "zweiundzwanzig"
+        if word_base.endswith(tuple(self.NUMBER_DICT_GER)):
+            # once again split - TODO: we should try to reduce split calls
+            word_base_split = self.split_number_word(word_base).split()
+            wbs_length = len(word_base_split)
+            if (
+                wbs_length > 0
+                and word_base_split[wbs_length - 1] in self.NUMBER_DICT_GER
+            ):
+                return "".join(word_base_split)
+        return None
 
     def num_ord(self, digits: str, original_word: str) -> str:
         """Add suffix to number in digits to make an ordinal"""
@@ -194,16 +191,16 @@ class German(Language):
         text = word.lower()  # NOTE: if we want to use this outside it should keep case
         invalid_word = ""
         result = ""
-        while len(text) > 0:
+        while text != "":
             # start with the longest
             found = False
             for sw, int_num in ALL_WORDS_SORTED_REVERSE.items():
                 # Check at the beginning of the current sentence for the longest word in ALL_WORDS
                 if text.startswith(sw):
                     if len(invalid_word) > 0:
-                        result += invalid_word + " "
+                        result += f"{invalid_word} "
                         invalid_word = ""
-                    result += sw + " "
+                    result += f"{sw} "
                     text = text[len(sw):]
                     found = True
                     break
@@ -220,15 +217,15 @@ class German(Language):
                     # result = result[:-1] + text[start:end]   # drop last space and add suffix
                     text = text[end:]
                     invalid_word = ""
-                elif not text[0] == " ":
+                elif text[0] != " ":
                     # move one index
-                    invalid_word += text[0:1]
+                    invalid_word += text[:1]
                     text = text[1:]
                 else:
                     if len(invalid_word) > 0:
-                        result += invalid_word + " "
+                        result += f"{invalid_word} "
                         invalid_word = ""
                     text = text[1:]
         if len(invalid_word) > 0:
-            result += invalid_word + " "
+            result += f"{invalid_word} "
         return result

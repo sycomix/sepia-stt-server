@@ -19,8 +19,7 @@ class HttpApiEndpoint:
             "result": "success",
             "settings": settings.get_settings_response()
         }
-        response = JSONResponse(content=data)
-        return response
+        return JSONResponse(content=data)
 
     def handle_settings_req_post(self, req: SettingsRequest, response: Response):
         """Handle settings POST request"""

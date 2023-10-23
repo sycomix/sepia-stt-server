@@ -66,7 +66,7 @@ CONFIG_PATHS = [
 ]
 
 def run_os_cmd(cmd, work_dir):
-    cmd = '/bin/bash -c "pushd %s && bash %s && popd"' % (work_dir, cmd)
+    cmd = f'/bin/bash -c "pushd {work_dir} && bash {cmd} && popd"'
     info (cmd)
     os.system (cmd)
 
@@ -105,31 +105,31 @@ class Processor(object):
         self.recordings_path = config.recordings_path
     def process(self, count, payload, cli):
         if count > CLIP_MIN_FRAMES:  # If the buffer is less than CLIP_MIN_MS, ignore it
-            info('Processing {} frames from {}'.format(count, cli))
-            file_name = "{}rec-{}-{}.wav".format(self.recordings_path, cli, datetime.datetime.now().strftime("%Y%m%dT%H%M%S"))
+            info(f'Processing {count} frames from {cli}')
+            file_name = f'{self.recordings_path}rec-{cli}-{datetime.datetime.now().strftime("%Y%m%dT%H%M%S")}.wav'
             output = wave.open(file_name, 'wb')
             output.setparams((1, 2, 16000, 0, 'NONE', 'not compressed'))  # nchannels, sampwidth, framerate, nframes, comptype, compname
             output.writeframes(payload)
             output.close()
-            info('File written {}'.format(file_name))
+            info(f'File written {file_name}')
             #------------------------------
             try:
                 get_decoder(cli).decode_wav_file(file_name, cli)
             except:
-                info("Decoding ERROR of %s" % file_name)
+                info(f"Decoding ERROR of {file_name}")
                 connections[cli].write_message('eDecoding error')
-            #------------------------------
-            # conn = connections[cli]
-            # conn.write_message('fFinal result, file written')
+                #------------------------------
+                # conn = connections[cli]
+                # conn.write_message('fFinal result, file written')
         else:
-            info('Discarding {} frames'.format(str(count)))    
+            info(f'Discarding {str(count)} frames')    
     def playback(self, content, cli):
         frames = len(content) // 640
-        info("Playing {} frames to {}".format(frames, cli))
+        info(f"Playing {frames} frames to {cli}")
         pos = 0
-        for x in range(0, frames + 1):
+        for _ in range(0, frames + 1):
             newpos = pos + 640
-            debug("writing bytes {} to {} to socket for {}".format(pos, newpos, cli))
+            debug(f"writing bytes {pos} to {newpos} to socket for {cli}")
             data = content[pos:newpos]
             connections[cli].write_message(data, binary=True)
             time.sleep(0.018)
@@ -138,26 +138,26 @@ class Processor(object):
 class Decoder(object):
     def __init__(self, kaldi_model_path):
         self.model_dir = kaldi_model_path 		#'/opt/kaldi/model/kaldi-generic-en-tdnn_sp'
-        
+
         info("Loading Kalid model %s ...", self.model_dir)
         time_start = time.time()
         self.kaldi_model = KaldiNNet3OnlineModel(self.model_dir, acoustic_scale=1.0, beam=7.0, frame_subsampling_factor=3)
-        info("Done, took {}".format(time.time()-time_start))
-        
+        info(f"Done, took {time.time() - time_start}")
+
         info('Creating Kalid decoder...')
         time_start = time.time()
         self.decoder = KaldiNNet3OnlineDecoder(self.kaldi_model)
-        info("Done, took {}".format(time.time()-time_start))
+        info(f"Done, took {time.time() - time_start}")
 
     def decode_wav_file(self, file_name, cli):
         time_start = time.time()
         if self.decoder.decode_wav_file(file_name):
             s, l = self.decoder.get_decoded_string()
             info("Decoding took %8.2fs, likelyhood: %f" % (time.time() - time_start, l))
-            info("Result: " + s)
-            connections[cli].write_message('f' + s)
+            info(f"Result: {s}")
+            connections[cli].write_message(f'f{s}')
         else:
-            info("Decoding of %s failed." % file_name)
+            info(f"Decoding of {file_name} failed.")
             connections[cli].write_message('eDecoding failed')
 
 
@@ -204,57 +204,59 @@ class ControlsHandler(tornado.web.RequestHandler):
                 'error': True, 
                 'msg': 'Please submit an authentication token.'
             })
-            return
-        else:
-            if token != "test":
-                self.write({
-                    'error': True, 
-                    'msg': 'Please submit a valid token.'
-                })
-                return
+        elif token == "test":
+            if kaldi_model:
+                #Set new default decoder
+                old_model = get_decoder("").model_dir
+                try:
+                    set_default_decoder(Decoder(kaldi_model))
+                    self.write({
+                        'success': True, 
+                        'msg': 'Set new Kaldi model.',
+                        "new": kaldi_model,
+                        "old": old_model
+                    })
+                except:
+                    self.write({
+                        'error': True, 
+                        'msg': 'Cannot set this Kaldi model! Please check the path again.'
+                    })
+
+            elif adapt_de:
+                cmd = f"adapt_build_move_clean.sh de {adapt_de}"
+                run_os_cmd(cmd, ADAPT_WORK_DIR)
+                self.write(
+                    {
+                        'success': True,
+                        'msg': 'Executed cmd, plz check console for errors.',
+                        "cmd": f"{ADAPT_WORK_DIR} {cmd}",
+                    }
+                )
+
+            elif adapt_en:
+                cmd = f"adapt_build_move_clean.sh en {adapt_en}"
+                run_os_cmd(cmd, ADAPT_WORK_DIR)
+                self.write(
+                    {
+                        'success': True,
+                        'msg': 'Executed cmd, plz check console for errors.',
+                        "cmd": f"{ADAPT_WORK_DIR} {cmd}",
+                    }
+                )
+
             else:
-                if kaldi_model:
-                    #Set new default decoder
-                    old_model = get_decoder("").model_dir
-                    try:
-                        set_default_decoder(Decoder(kaldi_model))
-                        self.write({
-                            'success': True, 
-                            'msg': 'Set new Kaldi model.',
-                            "new": kaldi_model,
-                            "old": old_model
-                        })
-                    except:
-                        self.write({
-                            'error': True, 
-                            'msg': 'Cannot set this Kaldi model! Please check the path again.'
-                        })
+                self.write({
+                    'success': True, 
+                    'msg': 'All good, but nothing changed.'
+                })
 
-                elif adapt_de:
-                    cmd = "adapt_build_move_clean.sh de %s" % adapt_de
-                    run_os_cmd(cmd, ADAPT_WORK_DIR)
-                    self.write({
-                        'success': True, 
-                        'msg': 'Executed cmd, plz check console for errors.',
-                        "cmd": "%s %s" % (ADAPT_WORK_DIR, cmd)
-                    })
 
-                elif adapt_en:
-                    cmd = "adapt_build_move_clean.sh en %s" % adapt_en
-                    run_os_cmd(cmd, ADAPT_WORK_DIR)
-                    self.write({
-                        'success': True, 
-                        'msg': 'Executed cmd, plz check console for errors.',
-                        "cmd": "%s %s" % (ADAPT_WORK_DIR, cmd)
-                    })
-                    
-                else:
-                    self.write({
-                        'success': True, 
-                        'msg': 'All good, but nothing changed.'
-                    })
-                    
-                return
+        else:
+            self.write({
+                'error': True, 
+                'msg': 'Please submit a valid token.'
+            })
+        return
 
 class WSHandler(tornado.websocket.WebSocketHandler):
     def check_origin(self, origin):
@@ -281,15 +283,15 @@ class WSHandler(tornado.websocket.WebSocketHandler):
 		
     def on_message(self, message):
         # Check if message is Binary or Text
-        debug("got message, type: " + type(message).__name__)
+        debug(f"got message, type: {type(message).__name__}")
         if type(message) == unicode:
-            self.write_message('You sent unicode: ' + message)
-            info("data: " + message)
+            self.write_message(f'You sent unicode: {message}')
+            info(f"data: {message}")
         elif type(message) == str:
             # self.write_message('You sent str: ' + message)
             # info("data: " + message)
             self.frames += 1
-            debug(" {}".format(self.frames))
+            debug(f" {self.frames}")
             if self.frames == 30:
                 self.write_message('iIntermediate result')
             elif self.frames == 60:
@@ -298,15 +300,15 @@ class WSHandler(tornado.websocket.WebSocketHandler):
                 self.frame_buffer.process(self.cli)
             else:
                 self.frame_buffer.append(message, self.cli)
-            # if self.vad.is_speech(message, 16000):
-                # debug ("SPEECH from {}".format(self.cli))
-                # self.tick = SILENCE
-                # self.frame_buffer.append(message, self.cli)
-            # else:
-                # debug("Silence from {} TICK: {}".format(self.cli, self.tick))
-                # self.tick -= 1
-                # if self.tick == 0:
-                    # self.frame_buffer.process(self.cli)  # Force processing and clearing of the buffer
+                # if self.vad.is_speech(message, 16000):
+                    # debug ("SPEECH from {}".format(self.cli))
+                    # self.tick = SILENCE
+                    # self.frame_buffer.append(message, self.cli)
+                # else:
+                    # debug("Silence from {} TICK: {}".format(self.cli, self.tick))
+                    # self.tick -= 1
+                    # if self.tick == 0:
+                        # self.frame_buffer.process(self.cli)  # Force processing and clearing of the buffer
         else:
             info(message)
             # Here we should be extracting the meta data that was sent and attaching it to the connection object
@@ -330,12 +332,14 @@ class Config(object):
         config = ConfigParser()
         if not config.read(config_paths):
             print(
-                "No config file found at the following locations: "
-                + "".join('\n    {}'.format(cp) for cp in config_paths),
+                (
+                    "No config file found at the following locations: "
+                    + "".join(f'\n    {cp}' for cp in config_paths)
+                ),
                 file=sys.stderr,
             )
             sys.exit(1)
-			
+
         # Validate config:
         try:
             #self.host = config.get("app", "host")

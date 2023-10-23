@@ -47,8 +47,6 @@ class SocketUser:
         """Check if user is valid"""
         client_id = socket_message.client_id
         token = socket_message.access_token
-        processor_options = socket_message.data
-        engine_name = None   # NOTE: we let the ChunkProcessor choose
         # Try one token for all
         if COMMON_TOKEN and token == COMMON_TOKEN:
             self.is_authenticated = True
@@ -60,6 +58,8 @@ class SocketUser:
                     self.is_authenticated = True
         # Create processor
         if self.is_authenticated:
+            processor_options = socket_message.data
+            engine_name = None   # NOTE: we let the ChunkProcessor choose
             try:
                 self.processor = ChunkProcessor(engine_name=engine_name,
                     send_message=self.send_message, options=processor_options)

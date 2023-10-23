@@ -27,7 +27,7 @@ class CoquiProcessor(EngineInterface):
         if not self._asr_model_scorer and "scorer" in self._asr_model_properties:
             self._asr_model_scorer = self._asr_model_properties["scorer"]
         # -- typically shared options
-        self._alternatives = options.get("alternatives", int(1))
+        self._alternatives = options.get("alternatives", 1)
         self._alternatives = max(1, self._alternatives) # Coqui can't handle 0
         self._return_words = options.get("words", options.get("words_ts", False))
         # -- increase probability of certain words
@@ -72,9 +72,9 @@ class CoquiProcessor(EngineInterface):
             pass
         elif chunk and len(chunk) > 0:
             self._recognizer.feedAudioContent(np_chunk)
-            # Partial result
-            result = self._recognizer.intermediateDecodeWithMetadata(num_results=1)
-            if result:
+            if result := self._recognizer.intermediateDecodeWithMetadata(
+                num_results=1
+            ):
                 self._state = 1
                 await self._handle_partial_result(result)
 
@@ -105,7 +105,7 @@ class CoquiProcessor(EngineInterface):
 
     def get_options(self):
         """Get Coqui options for active setup"""
-        active_options = {
+        return {
             "language": self._language,
             "task": self._asr_task,
             "model": self._asr_model_name,
@@ -114,15 +114,9 @@ class CoquiProcessor(EngineInterface):
             "optimizeFinalResult": self._optimize_final_result,
             "alternatives": self._alternatives,
             "continuous": self._continuous_mode,
-            "words": self._return_words
+            "words": self._return_words,
+            "hotWords": [],
         }
-        if self._hot_words and len(self._hot_words) > 0:
-            # NOTE: this can be very large, for now we use a placeholder
-            active_options["hotWords"] = []
-            #active_options["hotWords"] = self._hotWords
-        else:
-            active_options["hotWords"] = []
-        return active_options
 
     async def _handle_partial_result(self, result):
         """Handle a partial result and check for silence"""
@@ -137,7 +131,8 @@ class CoquiProcessor(EngineInterface):
             self._last_partial_str = partial_str
             # Note: we disable words and alternatives for partial results
             norm_result = CoquiProcessor.normalize_and_build_result(
-                result, partial_str, alternatives = int(1), return_words = False)
+                result, partial_str, alternatives=1, return_words=False
+            )
             self._partial_result = norm_result
             #print("PARTIAL: ", self._partial_result)
             await self._send(self._partial_result, False)
@@ -167,10 +162,7 @@ class CoquiProcessor(EngineInterface):
             # Send final result (because we haven't done it yet)
             await self._send(self._final_result, True)
             # TODO: destroy recognizer?
-        elif last_result_was_final:
-            # TODO: destroy recognizer?
-            pass
-        else:
+        elif not last_result_was_final:
             # Request final
             result = self._recognizer.finishStreamWithMetadata(self._alternatives)
             await self._handle_final_result(result, skip_send=True)
@@ -266,13 +258,12 @@ class CoquiProcessor(EngineInterface):
             # get transcript[0] words
             words = CoquiProcessor.collect_words_list(transcripts[0])
         json_result = {
-            "confidence": transcripts[0].confidence, # TODO: usually negative
-            "alternatives": alternatives_list
+            "confidence": transcripts[0].confidence,
+            "alternatives": alternatives_list,
+            "text": transcript0_str
+            if transcript0_str is not None
+            else CoquiProcessor.transcript_to_string(transcripts[0]),
         }
-        if transcript0_str is not None:
-            json_result["text"] = transcript0_str
-        else:
-            json_result["text"] = CoquiProcessor.transcript_to_string(transcripts[0])
         if words is not None:
             json_result["words"] = words # NOTE: currently we only return words of first transcript
 
@@ -287,7 +278,7 @@ class CoquiProcessor(EngineInterface):
             return given_result
         #else:            # we can do more post-processing here maybe
         if "text" in given_result:
-            given_result["text"] += ", " + text
+            given_result["text"] += f", {text}"
             if "confidence" in new_result:
                 # sloppy confidence merge (take the worst)
                 given_result["confidence"] = min(

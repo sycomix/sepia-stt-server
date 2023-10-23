@@ -56,13 +56,13 @@ class EngineInterface():
         elif self._language:
             # Do we have a language match?
             if self._language not in settings.asr_model_languages:
-                # Take the first entry that has the same base language
-                base_lang_fits = [l for l in settings.asr_model_languages
-                    if l.startswith(self.language_code_short)]
-                if base_lang_fits:
+                if base_lang_fits := [
+                    l
+                    for l in settings.asr_model_languages
+                    if l.startswith(self.language_code_short)
+                ]:
                     # overwrite given full language
                     self._language = base_lang_fits[0]
-                    #model_index = settings.asr_model_languages.index(base_lang_fits[0])
                 else:
                     # No language match, not even base language
                     raise ModelNotFound(f"No ASR model for language: {self.language_code_short}")
